@@ -27,15 +27,15 @@ LON_MAX=-119.15
 start_yr = 2017
 end_yr = 2017
 start_mon = 3
-end_mon = 3
-start_day = 19
-end_day = 19
-start_hr = 13
-end_hr = 13
+end_mon = 4
+start_day = 1
+end_day = 1
+start_hr = 0
+end_hr = 0
 
 #path to your local storage directory. Script will create a temp workspace and output netCDF workspace
 STORAGE_PATH = '/storage/dylan'
-out_filename = 'TUM_HRRR_QuickTest.nc'
+out_filename = 'TUM_HRRR_March_2017.nc'
 saveHRRR = False
 ##-------------------------------------------------------------------------------------------------------
 ##-------------------------------------------------------------------------------------------------------
@@ -50,6 +50,13 @@ PRESSSURF_INDEX = 45
 SPECHUM_INDEX = 56
 PRECIP_INDEX = 63
 OROGRAPHY_INDEX = 46
+
+lat_min_cord = 0
+lon_min_cord = 0
+lat_max_cord = 0
+lon_max_cord = 0
+
+
 
 #Setup file directories for script
 raw_dir = (STORAGE_PATH+"/HRRR/raw")
@@ -79,11 +86,6 @@ for t in range(0,NUM_HRS):
 	Press_Surf_temp, lats, lons = grbs.message(PRESSSURF_INDEX).data()
 	SpecHum_temp, lats, lons = grbs.message(SPECHUM_INDEX).data()
 	PrecipRate_temp, lats, lons = grbs.message(PRECIP_INDEX).data()
-	
-	lat_min_cord = 0
-	lon_min_cord = 0
-	lat_max_cord = 0
-	lon_max_cord = 0
 	
 	#If it is the first download, create variable structures and find bounds
 	if t == 0:
@@ -142,7 +144,6 @@ for t in range(0,NUM_HRS):
 		domain_lat = lats[lat_min_cord:lat_max_cord,lon_min_cord:lon_max_cord]
 		domain_lon = lons[lat_min_cord:lat_max_cord,lon_min_cord:lon_max_cord]
 		domain_elev = orography[lat_min_cord:lat_max_cord,lon_min_cord:lon_max_cord]
-
 	for i in range(lat_min_cord,lat_max_cord):
 		for j  in range(lon_min_cord,lon_max_cord):
 			U_10m[t,(i-lat_min_cord),(j-lon_min_cord)]=U_10m_temp[i,j]
@@ -154,7 +155,6 @@ for t in range(0,NUM_HRS):
 			PrecipRate[t,(i-lat_min_cord),(j-lon_min_cord)]=PrecipRate_temp[i,j]
 	grbs.close()
 	if not saveHRRR : os.remove(filename)
-
 print('Data clipped, reprojecting to Lambert Conformal coordinates...')
 #use geopandas to reporoject lat-lon in local UTM projection
 row_to_shapely = lambda row, col : Point(domain_lon[row,col],domain_lat[row,col])
@@ -328,7 +328,6 @@ PSFC[:,0,:,:]  = Press_Surf
 Q2[:,0,:,:]  = SpecHum
 #Convert from HRRR units of kg/m^2/s to mm/hr
 RAINCV[:,0,:,:]  = (PrecipRate*3600)
-
 print('Done.')
 
 

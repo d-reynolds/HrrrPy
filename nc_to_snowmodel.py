@@ -9,7 +9,7 @@ from shapely.geometry import Point
 ##-----------------------------------------------
 #User Inputs
 inputFilename = '/storage/dylan/HRRR/processed/TUM_HRRR_March_2017.nc'
-outputFilename = '/storage/dylan/HRRR/processed/HRRR_Micromet_March_2017.dat'
+outputFilename = '/storage/dylan/HRRR/processed/HRRR_March_2017.dat'
 projection_Lon = -97.5
 projection_Lat = 38.5
 ##-----------------------------------------------
@@ -23,6 +23,16 @@ hrrrNCDF = Dataset(inputFilename, 'r', format='NETCDF4_CLASSIC')
 x = hrrrNCDF.variables['x'][:]
 y = hrrrNCDF.variables['y'][:]
 elev = hrrrNCDF.variables['elev'][:,:]
+
+time_units = hrrrNCDF.variables['time'].units
+time_str = str(time_units).split()[2]
+[dates, hrs] = time_str.split('T')
+[yr, mon, day] = dates.split('-')
+hr = hrs.split(':')[0]
+
+num_hrs = len(hrrrNCDF.dimensions['time'])
+
+
 lat = hrrrNCDF.variables['lat'][:,:]
 lon = hrrrNCDF.variables['lon'][:,:]
 
@@ -39,8 +49,10 @@ proj_gdf = met_gdf.to_crs({'init':'epsg:26911'})#,str(epsg_code))})
 Y_UTM  = np.reshape(proj_gdf['geometry'].y.values,(y.size,x.size))
 X_UTM  = np.reshape(proj_gdf['geometry'].x.values,(y.size,x.size))
 
-Tair = hrrrNCDF.variables['Temperature_height_above_ground'][:,0,:,:]
-Tair = Tair-273.15
+Tair = np.zeros((num_hrs,lat.shape[0],lat.shape[1]))
+
+Tair[:,:,:] = hrrrNCDF.variables['Temperature_height_above_ground'][:,0,:,:]
+#Tair = Tair-273.15
 
 Press = hrrrNCDF.variables['PSFC'][:,0,:,:]
 Precip = hrrrNCDF.variables['RAINCV'][:,0,:,:]
@@ -98,7 +110,6 @@ stationIDs = np.arange(1,num_stations+1)
 stationIDs = np.reshape(stationIDs,(x.size,y.size))
 
 f = open(outputFilename,'w+')
-
 for t in range (0,num_hrs):
 	f.write('\t%d\n'%num_stations)
 	for j in range(0,x.size):
