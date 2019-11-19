@@ -8,8 +8,8 @@ from shapely.geometry import Point
 
 ##-----------------------------------------------
 #User Inputs
-inputFilename = '/storage/dylan/HRRR/processed/TUM_HRRR_March_2017.nc'
-outputFilename = '/storage/dylan/HRRR/processed/HRRR_March_2017.dat'
+inputFilename = '/storage/dylan/NLDAS/reproj_Stitched_NLDAS_WY2017.nc'
+outputFilename = '/storage/dylan/NLDAS/SM_WY2017.dat'
 projection_Lon = -97.5
 projection_Lat = 38.5
 ##-----------------------------------------------
@@ -18,8 +18,12 @@ projection_Lat = 38.5
 ## Function to take netCDF file and write data to met forcing file for SnowModel
 
 
-hrrrNCDF = Dataset(inputFilename, 'r', format='NETCDF4_CLASSIC')
+with Dataset(inputFilename, 'a', format='NETCDF4_CLASSIC') as hrrrNCDF:
+	for v in hrrrNCDF.variables.keys():
+		hrrrNCDF.variables[v][:] = (np.nan_to_num(hrrrNCDF.variables[v][:], nan=-9999.0))
+		hrrrNCDF.variables[v][:] = hrrrNCDF.variables[v][:].filled(-9999.0)	
 
+hrrrNCDF = Dataset(inputFilename, 'r', format='NETCDF4_CLASSIC')
 x = hrrrNCDF.variables['x'][:]
 y = hrrrNCDF.variables['y'][:]
 elev = hrrrNCDF.variables['elev'][:,:]
@@ -52,7 +56,7 @@ X_UTM  = np.reshape(proj_gdf['geometry'].x.values,(y.size,x.size))
 Tair = np.zeros((num_hrs,lat.shape[0],lat.shape[1]))
 
 Tair[:,:,:] = hrrrNCDF.variables['Temperature_height_above_ground'][:,0,:,:]
-#Tair = Tair-273.15
+Tair = np.where(Tair != -9999.0,Tair-273.15,-9999.0)
 
 Press = hrrrNCDF.variables['PSFC'][:,0,:,:]
 Precip = hrrrNCDF.variables['RAINCV'][:,0,:,:]
@@ -70,10 +74,14 @@ for i in range(0,x.size):
 		angle2 = np.sin(np.deg2rad(projection_Lat))*(lon[j,i]-projection_Lon)*0.017453
 		sinx2 = np.sin(angle2)
 		cosx2 = np.cos(angle2)
-		u_corr = (cosx2*u10[:,j,i])+(sinx2*v10[:,j,i])
-		v_corr = (sinx2*u10[:,j,i])+(cosx2*v10[:,j,i])
-		dir_corr = np.rad2deg(np.arctan2(v_corr,u_corr))
+		u_corr = -1*((cosx2*u10[:,j,i])+(sinx2*v10[:,j,i]))
+		v_corr = -1*((sinx2*u10[:,j,i])+(cosx2*v10[:,j,i]))
+		dir_corr = np.rad2deg(np.arctan2(u_corr,v_corr))
 		WindDir[:,j,i] = np.where(dir_corr > 0,dir_corr,dir_corr+360)[:]
+
+#account for masked values in wind record
+WindSpd = np.where(u10 != -9999.0,WindSpd,-9999.0)
+WindDir = np.where(u10 != -9999.0,WindDir,-9999.0)
 
 SpecHum = hrrrNCDF.variables['Q2'][:,0,:,:]
 #RH from q -- taken from Justin Pflug's Fortran script. Temp must be in C for this
@@ -88,6 +96,8 @@ e = SpecHum * Press / (0.622 + 0.378 * SpecHum)
 RH = 100*(e/es)
 RH = np.where(RH <= 100,RH,100)
 RH = np.where(RH > 0,RH,0) 
+#account for masked values in temp record
+RH = np.where(Tair != -9999.0,RH,-9999.0)
 
 x = hrrrNCDF.variables['x'][:]
 y = hrrrNCDF.variables['y'][:]
@@ -104,24 +114,31 @@ num_hrs = len(hrrrNCDF.dimensions['time'])
 time_series = pd.date_range(start=dt.datetime(int(yr),int(mon),int(day),int(hr)),periods=num_hrs,freq='1H')
 date_array = ga.date_range_2_array(time_series)
 
-num_stations = (x.size*y.size)
+num_stations = np.sum(elev > 0)
+good_station_mask = (elev > 0)
 
 stationIDs = np.arange(1,num_stations+1)
-stationIDs = np.reshape(stationIDs,(x.size,y.size))
+X_out = X_UTM[good_station_mask]
+Y_out = Y_UTM[good_station_mask]
+elev_out = elev[good_station_mask]
+T_out = Tair[:,good_station_mask]
+RH_out = RH[:,good_station_mask]
+WS_out = WindSpd[:,good_station_mask]
+WD_out = WindDir[:,good_station_mask]
+P_out = Precip[:,good_station_mask]
 
 f = open(outputFilename,'w+')
 for t in range (0,num_hrs):
 	f.write('\t%d\n'%num_stations)
-	for j in range(0,x.size):
-		for i in range(0,y.size):
-			dataLine = ('%4d %2d %2d %.2f %d %.1f %.1f %.1f %.2f %.2f %.2f %.2f %.2f\n'%\
-				(int(date_array.iloc[t,0]),int(date_array.iloc[t,1]),int(date_array.iloc[t,2]),\
-				int(date_array.iloc[t,3]),stationIDs[j,i],X_UTM[i,j],Y_UTM[i,j],elev[i,j],\
-				Tair[t,i,j],\
-				RH[t,i,j],\
-				WindSpd[t,i,j],\
-				WindDir[t,i,j],\
-				Precip[t,i,j]))
-			f.write(dataLine)		
+	for j in range(0,num_stations):
+		dataLine = ('%4d %2d %2d %.2f %d %.1f %.1f %.1f %.2f %.2f %.2f %.2f %.6f\n'%\
+			(int(date_array.iloc[t,0]),int(date_array.iloc[t,1]),int(date_array.iloc[t,2]),\
+			int(date_array.iloc[t,3]),stationIDs[j],X_out[j],Y_out[j],elev_out[j],\
+			T_out[t,j],\
+			RH_out[t,j],\
+			WS_out[t,j],\
+			WD_out[t,j],\
+			P_out[t,j]))
+		f.write(dataLine)		
 
 f.close()
