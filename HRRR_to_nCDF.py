@@ -39,10 +39,10 @@ end_hr = 0
 
 
 #path to your local storage directory. Script will create a temp workspace and output netCDF workspace
-STORAGE_PATH = '/storage/dylan'
-out_filename = 'Killarney_data.nc'
+STORAGE_PATH = '/storage/'
+out_filename = '.nc'
 
-#Flag that determines if raw HRRR grib file should be kept after processing
+#Flag that determines if raw HRRR grib file should be kept after processing. Not recommended, as this quickly adds up.
 saveHRRR = False
 
 #Flag to set if we are restarting a failed HRRR download. If so, the user should changing the starting
