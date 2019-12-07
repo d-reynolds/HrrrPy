@@ -1,5 +1,6 @@
 # HrrrPy
 Python tools for downloading archived HRRR data from the University of Utah HRRR archive (http://hrrr.chpc.utah.edu/)
+Opening and subsetting HRRR data to desired variables is currently slow due to the CFgrib Xarray driver's current options for opening grib files with heterogeneous messages. This driver still allows for a more robust indexing of variables by name instead of message number, and informative errors. If you plan to download large spatial/temporal datasets, allocate a few days for the script to run.
 
 To dowload archived HRRR data:
 * Edit the "User Defined Variables" Section of HRRR_to_nCDF.py to reflect the desired lat-lon and date range
