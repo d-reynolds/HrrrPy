@@ -156,7 +156,7 @@ read dummy
 
 if [[ $backgroundQ == *'y'* ]]
 then
-	nohup python HRRR_to_nCDF.py $max_lat $min_lat $max_lon $min_lon $st_yr $st_mon $st_day $st_hr $ed_yr $ed_mon $ed_day $ed_hr $save_dir $fname > ${save_dir}+${fname}+'.out' &
+	nohup python HRRR_to_nCDF.py $max_lat $min_lat $max_lon $min_lon $st_yr $st_mon $st_day $st_hr $ed_yr $ed_mon $ed_day $ed_hr $save_dir $fname > ${save_dir}${fname}'.out' &
 
 elif [[ $backgroundQ == *'n'* ]]
 then
