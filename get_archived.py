@@ -34,7 +34,7 @@ def get_archived(storage_path,year, month, day, hour):
 		hour = '0'+hour
 
 	dwnload_str = 'https://pando-rgw02.chpc.utah.edu/hrrr/sfc/'+year+month+day+'/hrrr.t'+hour+'z.wrfsfcf01.grib2';
-	filename = storage_path+'/HRRR/raw/temp_'+year+month+day+hour+'.grib2'
+	filename = storage_path+'temp_'+year+month+day+hour+'.grib2'
 	
 	try:
 		urllib.request.urlretrieve(dwnload_str,filename)

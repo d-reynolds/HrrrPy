@@ -5,16 +5,12 @@
 
 
 import get_archived as ga
-import pygrib
-from netCDF4 import Dataset
-import pandas as pd
-import geopandas as gpd
-from shapely.geometry import Point, Polygon
 import numpy as np
-import gdal
 import os
 import xarray as xr
 import cfgrib
+import sys
+
 ##-------------------------------------------------------------------------------------------------------
 ##USER DEFINED INPUTS
 ##-------------------------------------------------------------------------------------------------------
@@ -39,10 +35,10 @@ end_hr = 0
 
 
 #path to your local storage directory. Script will create a temp workspace and output netCDF workspace
-STORAGE_PATH = '/storage/'
-out_filename = '.nc'
+STORAGE_PATH = '/storage/dylan'
+out_filename = 'Killarney_data.nc'
 
-#Flag that determines if raw HRRR grib file should be kept after processing. Not recommended, as this quickly adds up.
+#Flag that determines if raw HRRR grib file should be kept after processing
 saveHRRR = False
 
 #Flag to set if we are restarting a failed HRRR download. If so, the user should changing the starting
@@ -52,15 +48,48 @@ restart = False
 ##End User Defined Inputs
 ##-------------------------------------------------------------------------------------------------------
 
+##-------------------------------------------------------------------------------------------------------
+##Command-line arguments section
+##-------------------------------------------------------------------------------------------------------
+#This script can be run with arguments from the command-line. Check to see if we have any, and process if so
+if (len(sys.argv) > 1):
+	#There are user-supplied arguments -- let's get to it!
+	if not(len(sys.argv) == 15):
+		print('Not enough input variables have been supplied to the script.')
+		print('Continuing with user-defined inputs hard-coded in script.')
+
+	else:
+		LAT_MAX = float(sys.argv[1])
+		LAT_MIN = float(sys.argv[2])
+		LON_MAX = float(sys.argv[3])
+		LON_MIN = float(sys.argv[4])
+
+		start_yr = int(sys.argv[5])
+		start_mon = int(sys.argv[6])
+		start_day = int(sys.argv[7])
+		start_hr = int(sys.argv[8])
+
+		end_yr = int(sys.argv[9])
+		end_mon = int(sys.argv[10])
+		end_day = int(sys.argv[11])
+		end_hr = int(sys.argv[12])
+		
+		STORAGE_PATH = str(sys.argv[13])
+		out_filename = str(sys.argv[14])+".nc"
+
+##-------------------------------------------------------------------------------------------------------
+##End command-line arguments section
+##-------------------------------------------------------------------------------------------------------
 
 
 #Setup file directories for script
-raw_dir = (STORAGE_PATH+"/HRRR/raw")
-processed_dir = (STORAGE_PATH+"/HRRR/processed")
+raw_dir = (STORAGE_PATH+"HRRR/raw/")
+processed_dir = (STORAGE_PATH+"HRRR/processed/")
 if not os.path.isdir(raw_dir):
-	os.mkdir(raw_dir)
+	os.makedirs(raw_dir)
 if not os.path.isdir(processed_dir):
-	os.mkdir(processed_dir)
+	os.makedirs(processed_dir)
+
 print('created dirs')
 
 #Get list of dates in desired interval for download
@@ -73,7 +102,7 @@ for t in range(0,NUM_HRS):
 	badRecordFlag = False
 	print('Downloading %d of %d...' % ((t+1),NUM_HRS))
 	#Download archived HRRR data
-	filename = ga.get_archived(STORAGE_PATH,dates.iloc[t,0],dates.iloc[t,1],dates.iloc[t,2],dates.iloc[t,3])
+	filename = ga.get_archived(raw_dir,dates.iloc[t,0],dates.iloc[t,1],dates.iloc[t,2],dates.iloc[t,3])
 	if (filename == ""):
 		badRecordFlag = True	
 
@@ -127,7 +156,7 @@ for t in range(0,NUM_HRS):
 	#If there is no cahced HRRR file, or we couldn't read the HRRR file, fill in the record with -9999 values
 	if badRecordFlag:
 		print('Error reading grib file, filling record with NaNs')
-		with xr.open_dataset("/storage/dylan/HRRR/processed/"+out_filename,engine='netcdf4') as processed_HRRR:
+		with xr.open_dataset(processed_dir+out_filename,engine='netcdf4') as processed_HRRR:
 			#Get last time slice from processed_HRRR file
 			record_vars = processed_HRRR.isel(time=[-1])
 			record_vars['u10'].values.fill('-9999.0')
@@ -148,11 +177,11 @@ for t in range(0,NUM_HRS):
 		encoding = {var: comp for var in record_vars.data_vars}
 		
 		record_vars.time.encoding = {'zlib':True,'complevel':5,'units':('hours since '+str(record_vars.time.values))}
-		record_vars.to_netcdf("/storage/dylan/HRRR/processed/"+out_filename,encoding=encoding)
+		record_vars.to_netcdf(processed_dir+out_filename,encoding=encoding)
 	else:
-		with xr.open_dataset("/storage/dylan/HRRR/processed/"+out_filename,engine='netcdf4') as processed_HRRR:
+		with xr.open_dataset(processed_dir+out_filename,engine='netcdf4') as processed_HRRR:
 			combined = xr.concat([processed_HRRR, record_vars], dim='time')
-		combined.to_netcdf("/storage/dylan/HRRR/processed/"+out_filename,'w')
+		combined.to_netcdf(processed_dir+out_filename,'w')
 
 	if not(saveHRRR) and filename: 
 		os.remove(filename)
