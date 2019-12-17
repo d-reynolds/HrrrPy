@@ -45,7 +45,7 @@ proj_gdf = met_gdf.to_crs(lcc_proj_string)#,str(epsg_code))})
 print('Creating netCDF file structure...')
 
 #Create netCDF structure and initilaize with dimensions given by coordinate lengths and Time length of data
-hrrrNCDF = Dataset(("/storage/dylan/HRRR/processed/reproj_"+filename), "w", format="NETCDF4_CLASSIC")
+hrrrNCDF = Dataset((storage_path+"reproj_"+filename), "w", format="NETCDF4_CLASSIC")
 hrrrNCDF.createDimension('x',np.transpose(domain_lon).shape[0])
 hrrrNCDF.createDimension('y',domain_lat.shape[0])
 hrrrNCDF.createDimension('height_above_ground1',1)
