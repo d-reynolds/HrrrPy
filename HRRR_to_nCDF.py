@@ -196,7 +196,10 @@ for t in range(0,NUM_HRS):
 		record_vars.time.encoding = {'zlib':True,'complevel':5,'units':('hours since '+str(record_vars.time.values))}
 		record_vars.to_netcdf(processed_dir+out_filename,encoding=encoding)
 	else:
-		record_vars.to_netcdf(processed_dir+out_filename,'a')
+		with xr.open_dataset(processed_dir+out_filename,engine='netcdf4') as processed_HRRR:
+			combined = xr.concat([processed_HRRR, record_vars], dim='time')
+		combined.to_netcdf(processed_dir+out_filename,'w')
+		del combined
 	if not(saveHRRR): 
 		clearDir(raw_dir)
         
