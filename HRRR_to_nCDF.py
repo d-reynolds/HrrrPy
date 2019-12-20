@@ -1,4 +1,7 @@
 # Script to download archived HRRR data and clip to supplied bounds
+# 
+# Thank you to Brian Blaylock for the use of the "download_HRRR_variable_from_pando" function
+# HRRR archive doi: 10.7278/S5JQ0Z5B
 #
 # RELEASE NOTES
 #   Version 1.0 Written by Dylan Reynolds (reyno18@uw.edu), Feb 2019)
@@ -10,6 +13,27 @@ import os
 import xarray as xr
 import cfgrib
 import sys
+import tracemalloc
+import download_HRRR_variable_from_pando as dHRRR
+import glob
+from datetime import date
+
+##-------------------------------------------------------------------------------------------------------
+##HELPER FUNCTIONS
+##-------------------------------------------------------------------------------------------------------
+
+#Used to clear storage directory at end of each loop
+def clearDir(inDir):
+	files = glob.glob(inDir+'*')
+	for f in files:
+		os.remove(f)
+
+#Some of the HRRR levels share heightAboveGround and have conflicting values. Remove from record before merging
+def preprocessOpen(ds):
+	if 'heightAboveGround' in ds.coords:
+		return ds.drop(['heightAboveGround'])
+	else:
+		return ds
 
 ##-------------------------------------------------------------------------------------------------------
 ##USER DEFINED INPUTS
@@ -35,7 +59,7 @@ end_hr = 0
 
 
 #path to your local storage directory. Script will create a temp workspace and output netCDF workspace
-STORAGE_PATH = '/storage/dylan'
+STORAGE_PATH = './'
 out_filename = 'Killarney_data.nc'
 
 #Flag that determines if raw HRRR grib file should be kept after processing
@@ -95,50 +119,45 @@ print('created dirs')
 #Get list of dates in desired interval for download
 dates = ga.format_dates(start_yr,start_mon,start_day,start_hr,end_yr,end_mon,end_day,end_hr)
 NUM_HRS = dates.shape[0]
+
 print('made dates')
+
+
+#clear raw directory
+clearDir(raw_dir)
+
+#GRIB keys in HRRR .grib file for the downloader to read
+grib_vars = ['TMP:2 m','UGRD:10 m','VGRD:10 m','SPFH:2 m','PRATE:surface',\
+	'DSWRF:surface','DLWRF:surface','HGT:surface','PRES:surface','TCDC:entire']
 
 print('Beginning HRRR downloads...')
 for t in range(0,NUM_HRS):
 	badRecordFlag = False
 	print('Downloading %d of %d...' % ((t+1),NUM_HRS))
 	#Download archived HRRR data
-	filename = ga.get_archived(raw_dir,dates.iloc[t,0],dates.iloc[t,1],dates.iloc[t,2],dates.iloc[t,3])
-	if (filename == ""):
-		badRecordFlag = True	
+	cur_date = date(int(dates.iloc[t,0]),int(dates.iloc[t,1]),int(dates.iloc[t,2]))
+	print('starting HRRR downloader')
+	try:
+		#Download all desired variables from HRRR archive
+		for var in grib_vars:
+			dHRRR.download_HRRR_variable_from_pando(cur_date,var,hours=[int(dates.iloc[t,3])],outdir=raw_dir) 
+	except:
+		badRecordFlag = True
+
+	print('ending HRRR downloader')
+	
 
 	print('starting to open grib files')
 	try:
-		HRRR_surf = xr.open_dataset(filename, engine='cfgrib',\
-		backend_kwargs=(dict(filter_by_keys={'typeOfLevel': 'surface', 'stepType': 'instant'},indexpath='')))
-
-		HRRR_2m = xr.open_dataset(filename, engine='cfgrib',\
-		backend_kwargs=(dict(filter_by_keys={'typeOfLevel': 'heightAboveGround', 'level': 2},indexpath='')))
-	
-		HRRR_10m = xr.open_dataset(filename, engine='cfgrib',\
-		backend_kwargs=(dict(filter_by_keys={'typeOfLevel': 'heightAboveGround', 'level': 10},indexpath='')))
-	
-		HRRR_atm = xr.open_dataset(filename, engine='cfgrib',\
-		backend_kwargs=(dict(filter_by_keys={'typeOfLevel': 'atmosphere', 'level': 0},indexpath='')))
-
-		HRRR_10m = HRRR_10m.drop(['heightAboveGround'])
-		HRRR_2m = HRRR_2m.drop(['heightAboveGround'])
-		#      Convert precip from mm/s to mm/hr
-		HRRR_surf.prate.values = HRRR_surf.prate.values*3600.0
+		#Open all downloaded grib files together
+		merged_vars = xr.open_mfdataset(raw_dir+'*.grib2',engine='cfgrib',combine='by_coords',preprocess=preprocessOpen)
 		
-		merged_vars = xr.merge([HRRR_10m.u10, \
-			HRRR_10m.v10,\
-		 	HRRR_2m.t2m,\
-		 	HRRR_atm.tcc,\
-		 	HRRR_surf.sp,\
-		 	HRRR_2m.q,\
-			HRRR_surf.prate,\
-		 	HRRR_surf.dswrf,\
-		 	HRRR_surf.dlwrf,\
-		 	HRRR_surf.orog])
-		merged_vars = merged_vars.drop(['atmosphere','surface','step','valid_time'])
-
-		#Longitude comes out of HRRR in 0-360, convert to -180 - 180
+		#Convert longitude from 0-360 to -180 - 180
 		merged_vars.longitude.values = merged_vars.longitude.values-360
+		
+		#Convert precip from mm/sec to mm/hr
+		merged_vars.prate.values = merged_vars.prate.values*3600.0
+		
 		if t==0:
 			subset_vars = merged_vars.where((merged_vars.latitude > LAT_MIN)&\
 			 (merged_vars.latitude < LAT_MAX)&\
@@ -146,8 +165,6 @@ for t in range(0,NUM_HRS):
 			 (merged_vars.longitude < LON_MAX), drop=True)
 
 			subset_lat = subset_vars.latitude
-			subset_lon = subset_vars.longitude
-
 		record_vars = merged_vars.where(merged_vars.latitude.isin(subset_lat), drop=True)
 	except:
                 badRecordFlag = True
@@ -179,12 +196,10 @@ for t in range(0,NUM_HRS):
 		record_vars.time.encoding = {'zlib':True,'complevel':5,'units':('hours since '+str(record_vars.time.values))}
 		record_vars.to_netcdf(processed_dir+out_filename,encoding=encoding)
 	else:
-		with xr.open_dataset(processed_dir+out_filename,engine='netcdf4') as processed_HRRR:
-			combined = xr.concat([processed_HRRR, record_vars], dim='time')
-		combined.to_netcdf(processed_dir+out_filename,'w')
-
-	if not(saveHRRR) and filename: 
-		os.remove(filename)
-
+		record_vars.to_netcdf(processed_dir+out_filename,'a')
+	if not(saveHRRR): 
+		clearDir(raw_dir)
+        
+        
 print('Done!')
 	
