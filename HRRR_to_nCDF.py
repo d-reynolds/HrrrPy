@@ -159,21 +159,11 @@ for t in range(0,NUM_HRS):
 		merged_vars.prate.values = merged_vars.prate.values*3600.0
 		
 		if t==0:
-			#Handle case of a point
-			if LAT_MIN == LAT_MAX and LON_MIN == LON_MAX:
-				dist = lambda lat1, lon1, lat2, lon2 : np.sqrt(lat1**2-lat2**2+lon1**2-lon2**2)
-				closest = 10000
-				for lat, lon in zip(merged_vars.latitude.values.flat, merged_vars.longitude.values.flat):
-					new = dist(LAT_MAX,LON_MAX,lat,lon)
-					if new < closest:
-						closest = new
-						subset_lat = lat
-			else: 
-				subset_vars = merged_vars.where((merged_vars.latitude > LAT_MIN)&\
+			subset_vars = merged_vars.where((merged_vars.latitude > LAT_MIN)&\
                          		(merged_vars.latitude < LAT_MAX)&\
                          		(merged_vars.longitude > LON_MIN)&\
                          		(merged_vars.longitude < LON_MAX), drop=True)
-				subset_lat = subset_vars.latitude
+			subset_lat = subset_vars.latitude
 		record_vars = merged_vars.where(merged_vars.latitude.isin(subset_lat), drop=True)
 	except:
                 badRecordFlag = True
