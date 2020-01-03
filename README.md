@@ -1,7 +1,7 @@
 # HrrrPy
 Python tools for downloading archived HRRR data from the University of Utah HRRR archive (http://hrrr.chpc.utah.edu/)
 
-The main python script currently pulls: Temperature, Relative Humidity, LW, SW, 10-m winds, Precipitation, Surface Pressure, and Total Cloud Cover. If you plan to download large spatial/temporal datasets, allocate a few days for the script to run.
+The main python script currently pulls: Temperature, Specific Humidity, LW, SW, 10-m winds, Precipitation, Surface Pressure, and Total Cloud Cover. If you plan to download large spatial/temporal datasets, allocate a few days for the script to run.
 
 To dowload archived HRRR data:
 * Download this repository 
