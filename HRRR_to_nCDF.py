@@ -31,29 +31,40 @@ def clearDir(inDir):
 #Some of the HRRR levels share heightAboveGround and have conflicting values. Remove from record before merging
 def preprocessOpen(ds):
 	if 'heightAboveGround' in ds.coords:
-		return ds.drop(['heightAboveGround'])
-	else:
-		return ds
+		ds = ds.drop(['heightAboveGround'])
+	if 'valid_time' in ds.coords:
+		ds = ds.drop(['valid_time'])
+	if 'step' in ds.coords:
+		ds = ds.drop(['step'])
+	return ds
 
+#Function to make sure netCDF file is complete before saving
+def checkComplete(ds):
+	completeList = ['u10','v10','t2m','tcc','sp','q','prate','dswrf','dlwrf','tp','orog']
+	returnList = []
+	for var in completeList:
+		if not(var in ds.data_vars):
+			returnList = np.append(returnList, var)
+	return returnList
 ##-------------------------------------------------------------------------------------------------------
 ##USER DEFINED INPUTS
 ##-------------------------------------------------------------------------------------------------------
 
 #TUM cords
-LAT_MIN=37.7
+LAT_MIN=37.6
 LAT_MAX=37.7
-LON_MIN=-119.15
+LON_MIN=-119.25
 LON_MAX=-119.15
 
 
 #Desired times of HRRR data
-start_yr = 2018
-end_yr = 2018
-start_mon = 6
+start_yr = 2016
+end_yr = 2016
+start_mon = 10
 end_mon = 10
-start_day = 1
+start_day = 12
 end_day = 24
-start_hr = 0
+start_hr = 12
 end_hr = 0
 
 
@@ -118,6 +129,9 @@ print('created dirs')
 
 #Get list of dates in desired interval for download
 dates = ga.format_dates(start_yr,start_mon,start_day,start_hr,end_yr,end_mon,end_day,end_hr)
+#Precip dates are set 1 hour back since we have to read a forecast file 1 hour in the future
+#prec_dates = ga.format_dates(start_yr,start_mon,start_day,start_hr-1,end_yr,end_mon,end_day,end_hr-1)
+
 NUM_HRS = dates.shape[0]
 
 print('made dates')
@@ -128,30 +142,34 @@ clearDir(raw_dir)
 
 #GRIB keys in HRRR .grib file for the downloader to read
 grib_vars = ['TMP:2 m','UGRD:10 m','VGRD:10 m','SPFH:2 m','PRATE:surface',\
-	'DSWRF:surface','DLWRF:surface','HGT:surface','PRES:surface','TCDC:entire']
+	'DSWRF:surface','DLWRF:surface','HGT:surface','PRES:surface','TCDC:entire','APCP:surface']
 
 print('Beginning HRRR downloads...')
 for t in range(0,NUM_HRS):
-	badRecordFlag = False
+	badRecordFlag=False
 	print('Downloading %d of %d...' % ((t+1),NUM_HRS))
 	#Download archived HRRR data
 	cur_date = date(int(dates.iloc[t,0]),int(dates.iloc[t,1]),int(dates.iloc[t,2]))
+#	prec_cur_date = date(int(prec_dates.iloc[t,0]),int(prec_dates.iloc[t,1]),int(prec_dates.iloc[t,2]))
 	print('starting HRRR downloader')
 	try:
 		#Download all desired variables from HRRR archive
 		for var in grib_vars:
-			dHRRR.download_HRRR_variable_from_pando(cur_date,var,hours=[int(dates.iloc[t,3])],outdir=raw_dir) 
+			if ('PRATE' in var):
+				dHRRR.download_HRRR_variable_from_pando(cur_date,var,hours=[int(dates.iloc[t,3])],fxx=[1],outdir=raw_dir)
+			else:
+				dHRRR.download_HRRR_variable_from_pando(cur_date,var,hours=[int(dates.iloc[t,3])],fxx=[0],outdir=raw_dir) 
 	except:
 		badRecordFlag = True
 
 	print('ending HRRR downloader')
 	
-
+	record_vars = xr.Dataset()
 	print('starting to open grib files')
 	try:
 		#Open all downloaded grib files together
 		merged_vars = xr.open_mfdataset(raw_dir+'*.grib2',engine='cfgrib',combine='by_coords',preprocess=preprocessOpen)
-		
+		print('merged all grib files')	
 		#Convert longitude from 0-360 to -180 - 180
 		merged_vars.longitude.values = merged_vars.longitude.values-360
 		
@@ -159,34 +177,50 @@ for t in range(0,NUM_HRS):
 		merged_vars.prate.values = merged_vars.prate.values*3600.0
 		
 		if t==0:
-			subset_vars = merged_vars.where((merged_vars.latitude > LAT_MIN)&\
+			#Handle case of a point
+			if LAT_MIN == LAT_MAX and LON_MIN == LON_MAX:
+				dist = lambda lat1, lon1, lat2, lon2 : np.sqrt(lat1**2-lat2**2+lon1**2-lon2**2)
+				closest = 10000
+				for lat, lon in zip(merged_vars.latitude.values.flat, merged_vars.longitude.values.flat):
+					new = dist(LAT_MAX,LON_MAX,lat,lon)
+					if new < closest:
+						closest = new
+						subset_lat = lat
+			else: 
+				subset_vars = merged_vars.where((merged_vars.latitude > LAT_MIN)&\
                          		(merged_vars.latitude < LAT_MAX)&\
                          		(merged_vars.longitude > LON_MIN)&\
                          		(merged_vars.longitude < LON_MAX), drop=True)
-			subset_lat = subset_vars.latitude
+				subset_lat = subset_vars.latitude
 		record_vars = merged_vars.where(merged_vars.latitude.isin(subset_lat), drop=True)
+		#Handle case that model grid changes over the course of the archive, giving no points when using initial indices
+		if record_vars.x.values.size == 0:
+			subset_vars = merged_vars.where((merged_vars.latitude > LAT_MIN)&\
+                                        (merged_vars.latitude < LAT_MAX)&\
+                                        (merged_vars.longitude > LON_MIN)&\
+                                        (merged_vars.longitude < LON_MAX), drop=True)
+			subset_lat = subset_vars.latitude
+			record_vars = merged_vars.where(merged_vars.latitude.isin(subset_lat), drop=True)
+			#Try again -- if obtaining a new point didnt work, it's just a bad record
+			if record_vars.x.values.size == 0:
+				badRecordFlag = True
 	except:
-                badRecordFlag = True
-
-
+		badRecordFlag = True
+	fill_vars = checkComplete(record_vars)
+	
 	#If there is no cahced HRRR file, or we couldn't read the HRRR file, fill in the record with -9999 values
-	if badRecordFlag:
+	if (len(fill_vars) or badRecordFlag):
 		print('Error reading grib file, filling record with NaNs')
 		with xr.open_dataset(processed_dir+out_filename,engine='netcdf4') as processed_HRRR:
 			#Get last time slice from processed_HRRR file
-			record_vars = processed_HRRR.isel(time=[-1])
-			record_vars['u10'].values.fill('-9999.0')
-			record_vars['v10'].values.fill('-9999.0')
-			record_vars['t2m'].values.fill('-9999.0')
-			record_vars['tcc'].values.fill('-9999.0')
-			record_vars['sp'].values.fill('-9999.0')
-			record_vars['q'].values.fill('-9999.0')
-			record_vars['prate'].values.fill('-9999.0')
-			record_vars['dswrf'].values.fill('-9999.0')
-			record_vars['dlwrf'].values.fill('-9999.0')
-			record_vars['time'].values = record_vars['time'].values + np.timedelta64(1, 'h') 
+			fill_ds = processed_HRRR.isel(time=[-1])
+			for var in fill_vars:
+				fill_ds[var].values.fill('-9999.0')
+				record_vars[var] = fill_ds[var]
+			record_vars['time'] = fill_ds['time']
+			record_vars['time'].values = fill_ds['time'].values + np.timedelta64(1, 'h')
 	print('Datasubset, saving...')
-
+	print(record_vars)
 	if t==0 and restart != True:
 		#Set up encoding parameters to use compression when writing netcdf file
 		comp = dict(zlib=True, complevel=5, _FillValue=-9999.0)

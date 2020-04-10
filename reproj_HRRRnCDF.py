@@ -45,7 +45,7 @@ proj_gdf = met_gdf.to_crs(lcc_proj_string)#,str(epsg_code))})
 print('Creating netCDF file structure...')
 
 #Create netCDF structure and initilaize with dimensions given by coordinate lengths and Time length of data
-hrrrNCDF = Dataset((storage_path+"reproj_"+filename), "w", format="NETCDF4_CLASSIC")
+hrrrNCDF = Dataset(("/storage/dylan/HRRR/processed/reproj_"+filename), "w", format="NETCDF4_CLASSIC")
 hrrrNCDF.createDimension('x',np.transpose(domain_lon).shape[0])
 hrrrNCDF.createDimension('y',domain_lat.shape[0])
 hrrrNCDF.createDimension('height_above_ground1',1)
@@ -172,12 +172,12 @@ Q2.units = "kg/kg"
 Q2.grid_mapping = "LCC_projection"
 Q2.coordinates = "time height_above_ground2 y x "
 
-RAINCV = \
-hrrrNCDF.createVariable('RAINCV','f8',("time",'height_above_ground2','y','x',))
-RAINCV.long_name = "Hourly precipitation rate"
-RAINCV.units = "mm/hr"
-RAINCV.grid_mapping = "LCC_projection"
-RAINCV.coordinates = "time height_above_ground2 y x "
+PRATE = \
+hrrrNCDF.createVariable('PRATE','f8',("time",'height_above_ground2','y','x',))
+PRATE.long_name = "Hourly precipitation rate"
+PRATE.units = "mm/hr"
+PRATE.grid_mapping = "LCC_projection"
+PRATE.coordinates = "time height_above_ground2 y x "
 
 #Add global attributes
 
@@ -222,7 +222,7 @@ PSFC[:,0,:,:]  = inputFile.sp
 Q2[:,0,:,:]  = inputFile.q
 SW_in[:,0,:,:]  = inputFile.dswrf
 LW_in[:,0,:,:]  = inputFile.dlwrf
-RAINCV[:,0,:,:]  = inputFile.prate
+PRATE[:,0,:,:]  = inputFile.prate
 print('Done.')
 
 
