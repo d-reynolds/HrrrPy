@@ -65,7 +65,7 @@ Tair = np.where(Tair != -9999.0,Tair-273.15,-9999.0)
 
 #Get surface pressure, hourly precip, specific humidity, and 10-m u and v wind components
 Press = hrrrNCDF.variables['PSFC'][:,0,:,:]
-Precip = hrrrNCDF.variables['RAINCV'][:,0,:,:]
+Precip = hrrrNCDF.variables['PRATE'][:,0,:,:]
 SpecHum = hrrrNCDF.variables['Q2'][:,0,:,:]
 u10 = hrrrNCDF.variables['U-component_of_wind_height_above_ground'][:,0,:,:]
 v10 = hrrrNCDF.variables['V-component_of_wind_height_above_ground'][:,0,:,:]
