@@ -44,13 +44,14 @@ def get_archived(storage_path,year, month, day, hour):
 	return filename
 
 
-def format_dates(st_yr,st_mon,st_day,st_hr,end_yr,end_mon,end_day,end_hr):
+def format_dates(st_yr,st_mon,st_day,st_hr,end_yr,end_mon,end_day,end_hr,offset=0):
 	#Helper function to main script. Ingests start and end date, returning a numeric array of dates by
 	#year, month, day, hour
 	
 	pd_range = pd.date_range(start=dt.datetime(st_yr,st_mon,st_day,st_hr),\
 				end=dt.datetime(end_yr,end_mon,end_day,end_hr),\
 				freq='1H')
+	pd_range = pd_range + dt.timedelta(hours=offset)
 	return date_range_2_array(pd_range)
 
 def date_range_2_array(dRange):

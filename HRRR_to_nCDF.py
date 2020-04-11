@@ -36,11 +36,15 @@ def preprocessOpen(ds):
 		ds = ds.drop(['valid_time'])
 	if 'step' in ds.coords:
 		ds = ds.drop(['step'])
+	#If we are handling the precip field, shift time forward one hour since it is a forecast
+	#This is necesarry to merge all variables along the time dimension
+	if 'prate' in ds.data_vars:
+		ds.time.values = ds.time.values + np.timedelta64(1,'h')
 	return ds
 
 #Function to make sure netCDF file is complete before saving
 def checkComplete(ds):
-	completeList = ['u10','v10','t2m','tcc','sp','q','prate','dswrf','dlwrf','tp','orog']
+	completeList = ['u10','v10','t2m','tcc','sp','q','prate','dswrf','dlwrf']
 	returnList = []
 	for var in completeList:
 		if not(var in ds.data_vars):
@@ -60,8 +64,8 @@ LON_MAX=-119.15
 #Desired times of HRRR data
 start_yr = 2016
 end_yr = 2016
-start_mon = 10
-end_mon = 10
+start_mon = 11
+end_mon = 11
 start_day = 12
 end_day = 24
 start_hr = 12
@@ -130,7 +134,7 @@ print('created dirs')
 #Get list of dates in desired interval for download
 dates = ga.format_dates(start_yr,start_mon,start_day,start_hr,end_yr,end_mon,end_day,end_hr)
 #Precip dates are set 1 hour back since we have to read a forecast file 1 hour in the future
-#prec_dates = ga.format_dates(start_yr,start_mon,start_day,start_hr-1,end_yr,end_mon,end_day,end_hr-1)
+prec_dates = ga.format_dates(start_yr,start_mon,start_day,start_hr,end_yr,end_mon,end_day,end_hr,offset=-1)
 
 NUM_HRS = dates.shape[0]
 
@@ -142,7 +146,7 @@ clearDir(raw_dir)
 
 #GRIB keys in HRRR .grib file for the downloader to read
 grib_vars = ['TMP:2 m','UGRD:10 m','VGRD:10 m','SPFH:2 m','PRATE:surface',\
-	'DSWRF:surface','DLWRF:surface','HGT:surface','PRES:surface','TCDC:entire','APCP:surface']
+	'DSWRF:surface','DLWRF:surface','HGT:surface','PRES:surface','TCDC:entire']
 
 print('Beginning HRRR downloads...')
 for t in range(0,NUM_HRS):
@@ -150,13 +154,13 @@ for t in range(0,NUM_HRS):
 	print('Downloading %d of %d...' % ((t+1),NUM_HRS))
 	#Download archived HRRR data
 	cur_date = date(int(dates.iloc[t,0]),int(dates.iloc[t,1]),int(dates.iloc[t,2]))
-#	prec_cur_date = date(int(prec_dates.iloc[t,0]),int(prec_dates.iloc[t,1]),int(prec_dates.iloc[t,2]))
+	prec_cur_date = date(int(prec_dates.iloc[t,0]),int(prec_dates.iloc[t,1]),int(prec_dates.iloc[t,2]))
 	print('starting HRRR downloader')
 	try:
 		#Download all desired variables from HRRR archive
 		for var in grib_vars:
 			if ('PRATE' in var):
-				dHRRR.download_HRRR_variable_from_pando(cur_date,var,hours=[int(dates.iloc[t,3])],fxx=[1],outdir=raw_dir)
+				dHRRR.download_HRRR_variable_from_pando(prec_cur_date,var,hours=[int(prec_dates.iloc[t,3])],fxx=[1],outdir=raw_dir)
 			else:
 				dHRRR.download_HRRR_variable_from_pando(cur_date,var,hours=[int(dates.iloc[t,3])],fxx=[0],outdir=raw_dir) 
 	except:
