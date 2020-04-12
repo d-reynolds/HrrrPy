@@ -10,10 +10,9 @@
 import get_archived as ga
 import numpy as np
 import os
+import sys
 import xarray as xr
 import cfgrib
-import sys
-import tracemalloc
 import download_HRRR_variable_from_pando as dHRRR
 import glob
 from datetime import date
