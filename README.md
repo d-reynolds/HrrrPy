@@ -3,9 +3,15 @@ Python tools for downloading archived HRRR data from the University of Utah HRRR
 
 The main python script currently pulls: Temperature, Specific Humidity, LW, SW, 10-m winds, Precipitation, Surface Pressure, and Total Cloud Cover. If you plan to download large spatial/temporal datasets, allocate a few days for the script to run.
 
+Commands to setup the project for use:
+  $ git clone https://github.com/d-reynolds/HrrrPy.git
+  $ conda env create -f HrrrPy.yml
+  $ conda activate HrrrPyEnv
+  $ chmod +x HRRR_Wrapper.sh
+  
+ 
 To dowload archived HRRR data:
-* Download this repository 
-* Run "HRRR_Wrapper.sh" from the directory
+* Run "./HRRR_Wrapper.sh" from the directory
 * Follow the prompts 
 
 To reproject HRRR data for input to WindNinja/MicroMet:
