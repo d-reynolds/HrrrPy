@@ -6,6 +6,7 @@ The main python script currently pulls: Temperature, Specific Humidity, LW, SW, 
 Commands to setup the project for use:
 ```bash
 git clone https://github.com/d-reynolds/HrrrPy.git
+cd HrrrPy
 conda env create -f HrrrPy.yml
 conda activate HrrrPyEnv
 chmod +x HRRR_Wrapper.sh
