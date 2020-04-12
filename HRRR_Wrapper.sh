@@ -21,6 +21,17 @@ echo University of Utah\'s HRRR archive
 echo managed by Brian Blaylock
 echo \(http://hrrr.chpc.utah.edu/\)
 echo
+echo The spatial range available is:
+echo 21.14 < Latitude 47.84
+echo -60.9 < Longitude -122.7
+echo
+echo The temporal range available is:
+echo 00:00 July 15 2016 --> Present
+echo
+echo Dates with missing data will be filled with NaN values. Check:
+echo http://home.chpc.utah.edu/~u0553130/Brian_Blaylock/hrrr_FAQ.html
+echo to see which dates have missing data
+echo
 echo ----------------------------------------------------
 echo Answer these questions about your region of interest
 echo ----------------------------------------------------
