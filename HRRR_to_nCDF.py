@@ -43,7 +43,7 @@ def preprocessOpen(ds):
 
 #Function to make sure netCDF file is complete before saving
 def checkComplete(ds):
-	completeList = ['u10','v10','t2m','tcc','sp','q','prate','dswrf','dlwrf']
+	completeList = ['u10','v10','t2m','tcc','sp','sh2','prate','dswrf','dlwrf']
 	returnList = []
 	for var in completeList:
 		if not(var in ds.data_vars):
